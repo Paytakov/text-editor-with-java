@@ -1,10 +1,14 @@
 import com.sun.jna.Library;
 import com.sun.jna.Native;
 import com.sun.jna.Structure;
+
 import java.io.IOException;
 import java.util.Arrays;
 
 public class Viewer {
+
+    private static final int ARROW_UP = 1000, ARROW_DOWN = 1001, ARROW_RIGHT = 1002, ARROW_LEFT = 1003,
+    PAGE_UP = 1004, PAGE_DOWN = 1005, HOME_KEY = 1006, END_KEY = 1007, DEL_KEY = 1008;
 
     private static LibC.Termios originalAttributes;
     private static int rows = 10;
@@ -65,7 +69,57 @@ public class Viewer {
     }
 
     private static int readKey() throws IOException {
-        return System.in.read();
+        int key = System.in.read();
+        if (key != '\033') {
+            return key;
+        }
+
+        int nextKey = System.in.read();
+        if (nextKey != '[' && nextKey != 'O') {
+            return nextKey;
+        }
+
+        int yetAnotherKey = System.in.read();
+
+        if (nextKey != '[') {
+            return switch (yetAnotherKey) {
+                case 'A' -> ARROW_UP;
+                case 'B' -> ARROW_DOWN;
+                case 'C' -> ARROW_RIGHT;
+                case 'D' -> ARROW_LEFT;
+                case 'H' -> HOME_KEY;
+                case 'F' -> END_KEY;
+                case '0', '1', '2', '3', '4', '5', '6', '7', '8', '9' -> { // e.g: esc[5~ == page_up
+                    int yetYetAnotherChar = System.in.read();
+                    if (yetYetAnotherChar != '~') {
+                        yield yetYetAnotherChar;
+                    }
+                    switch (yetAnotherKey) {
+                        case '1':
+                        case '7':
+                            yield HOME_KEY;
+                        case '3':
+                            yield DEL_KEY;
+                        case '4':
+                        case '8':
+                            yield END_KEY;
+                        case '5':
+                            yield PAGE_UP;
+                        case '6':
+                            yield PAGE_DOWN;
+                        default:
+                            yield yetAnotherKey;
+                    }
+                }
+                default -> yetAnotherKey;
+            };
+        } else { // if nextKey == 'O' -> e.g: escpOH == HOME
+            return switch (yetAnotherKey) {
+                case 'H' -> HOME_KEY;
+                case 'F' -> END_KEY;
+                default -> yetAnotherKey;
+            };
+        }
     }
 
     private static void enableRawMode() {
