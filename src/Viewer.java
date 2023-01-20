@@ -4,6 +4,7 @@ import com.sun.jna.Structure;
 
 import java.io.IOException;
 import java.util.Arrays;
+import java.util.List;
 
 public class Viewer {
 
@@ -13,6 +14,7 @@ public class Viewer {
     private static LibC.Termios originalAttributes;
     private static int rows = 10;
     private static int columns = 10;
+    private static int cursorX = 0, cursorY = 0;
 
     public static void main(String[] args) throws IOException {
 
@@ -48,23 +50,59 @@ public class Viewer {
                 .append(" ".repeat(Math.max(0, columns - statusMessage.length())))
                 .append("\033[0m");
 
-        builder.append("\033[H");
+        builder.append(String.format("\033[%d;%dH", cursorY + 1, cursorX + 1));
         System.out.println(builder);
-    }
-
-    private static void cleanUp() {
-        System.out.print("\033[2J");
-        System.out.print("\033[H");
     }
 
     private static void handleKey(int key) {
         if (key == 'q') {
-            cleanUp();
-            LibC.INSTANCE.tcsetattr(
-                    LibC.SYSTEM_OUT_FD,
-                    LibC.TCSAFLUSH,
-                    originalAttributes);
-            System.exit(0);
+            exit();
+        } else if (List.of(
+                ARROW_UP,
+                ARROW_DOWN,
+                ARROW_RIGHT,
+                ARROW_LEFT,
+                HOME_KEY,
+                END_KEY).contains(key)) {
+
+            moveCursor(key);
+        }
+    }
+
+    private static void exit() {
+        System.out.print("\033[2J");
+        System.out.print("\033[H");
+        LibC.INSTANCE.tcsetattr(
+                LibC.SYSTEM_OUT_FD,
+                LibC.TCSAFLUSH,
+                originalAttributes);
+        System.exit(0);
+    }
+
+    private static void moveCursor(int key) {
+        switch (key) {
+            case ARROW_UP -> {
+                if (cursorY > 0) {
+                    cursorY--;
+                }
+            }
+            case ARROW_DOWN -> {
+                if (cursorY < rows - 1) {
+                    cursorY++;
+                }
+            }
+            case ARROW_RIGHT -> {
+                if (cursorX < columns - 1) {
+                    cursorX++;
+                }
+            }
+            case ARROW_LEFT -> {
+                if (cursorX > 0) {
+                    cursorX--;
+                }
+            }
+            case HOME_KEY -> cursorX = 0;
+            case END_KEY -> cursorY = columns - 1;
         }
     }
 
