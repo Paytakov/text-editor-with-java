@@ -3,8 +3,11 @@ import com.sun.jna.Native;
 import com.sun.jna.Structure;
 
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.List;
+import java.util.stream.Stream;
 
 public class Viewer {
 
@@ -15,8 +18,11 @@ public class Viewer {
     private static int rows = 10;
     private static int columns = 10;
     private static int cursorX = 0, cursorY = 0;
+    private static List<String> content = List.of();
 
     public static void main(String[] args) throws IOException {
+
+        openFile(args);
 
         enableRawMode();
         initEditor();
@@ -25,6 +31,20 @@ public class Viewer {
             refreshScreen();
             int key = readKey();
             handleKey(key);
+        }
+    }
+
+    private static void openFile(String[] args) {
+        if (args.length == 1) {
+            String fileName = args[0];
+            Path path = Path.of(fileName);
+            if (Files.exists(path)) {
+                try (Stream<String> stream = Files.lines(path)){
+                    content = stream.toList();
+                } catch (IOException e) {
+                    // TODO
+                }
+            }
         }
     }
 
@@ -41,7 +61,12 @@ public class Viewer {
         builder.append("\033[H");
 
         for (int i = 0; i < rows - 1; i++) {
-            builder.append("~\r\n");
+            if (i >= content.size()) {
+                builder.append("~");
+            } else {
+                builder.append(content.get(i));
+            }
+            builder.append("\r\n");
         }
 
         String statusMessage = "Paytakov's Java text Editor - v0.0.1";
