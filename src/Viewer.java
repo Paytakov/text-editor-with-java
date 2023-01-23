@@ -1,7 +1,6 @@
 import com.sun.jna.Library;
 import com.sun.jna.Native;
 import com.sun.jna.Structure;
-
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -17,7 +16,7 @@ public class Viewer {
     private static LibC.Termios originalAttributes;
     private static int rows = 10;
     private static int columns = 10;
-    private static int cursorX = 0, cursorY = 0;
+    private static int cursorX = 0, cursorY = 0, offsetY = 0;
     private static List<String> content = List.of();
 
     public static void main(String[] args) throws IOException {
@@ -28,9 +27,18 @@ public class Viewer {
         initEditor();
 
         while (true) {
+            scroll();
             refreshScreen();
             int key = readKey();
             handleKey(key);
+        }
+    }
+
+    private static void scroll() {
+        if (cursorY >= rows + offsetY) {
+            offsetY = cursorY - rows + 1;
+        } else if (cursorY < offsetY) {
+            offsetY = cursorY;
         }
     }
 
@@ -50,33 +58,49 @@ public class Viewer {
 
     private static void initEditor() {
         LibC.Winsize windowSize = getWindowSize();
-        rows = windowSize.ws_row;
+        rows = windowSize.ws_row - 1;
         columns = windowSize.ws_col;
     }
 
     private static void refreshScreen() {
         StringBuilder builder = new StringBuilder();
 
-        builder.append("\033[2J");
+        moveCursorToTopLeft(builder);
+        drawContent(builder);
+        drawStatusBar(builder);
+        drawCursor(builder);
+
+        System.out.println(builder);
+    }
+
+    private static void moveCursorToTopLeft(StringBuilder builder) {
         builder.append("\033[H");
+    }
 
-        for (int i = 0; i < rows - 1; i++) {
-            if (i >= content.size()) {
-                builder.append("~");
-            } else {
-                builder.append(content.get(i));
-            }
-            builder.append("\r\n");
-        }
+    private static void drawCursor(StringBuilder builder) {
+        builder.append(String.format("\033[%d;%dH", cursorY - offsetY + 1, cursorX + 1));
+    }
 
+    private static void drawStatusBar(StringBuilder builder) {
+//        String statusMessage = "Rows: " + rows + "X: " + cursorX + "Y: " + cursorY;
         String statusMessage = "Paytakov's Java text Editor - v0.0.1";
         builder.append("\033[7m")
                 .append(statusMessage)
                 .append(" ".repeat(Math.max(0, columns - statusMessage.length())))
                 .append("\033[0m");
+    }
 
-        builder.append(String.format("\033[%d;%dH", cursorY + 1, cursorX + 1));
-        System.out.println(builder);
+    private static void drawContent(StringBuilder builder) {
+        for (int i = 0; i < rows; i++) {
+            int fileI = offsetY + i;
+
+            if (fileI >= content.size()) {
+                builder.append("~");
+            } else {
+                builder.append(content.get(fileI));
+            }
+            builder.append("\r\n");
+        }
     }
 
     private static void handleKey(int key) {
@@ -112,7 +136,7 @@ public class Viewer {
                 }
             }
             case ARROW_DOWN -> {
-                if (cursorY < rows - 1) {
+                if (cursorY < content.size()) {
                     cursorY++;
                 }
             }
