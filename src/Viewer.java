@@ -1,6 +1,7 @@
 import com.sun.jna.Library;
 import com.sun.jna.Native;
 import com.sun.jna.Structure;
+
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -11,7 +12,7 @@ import java.util.stream.Stream;
 public class Viewer {
 
     private static final int ARROW_UP = 1000, ARROW_DOWN = 1001, ARROW_RIGHT = 1002, ARROW_LEFT = 1003,
-    PAGE_UP = 1004, PAGE_DOWN = 1005, HOME_KEY = 1006, END_KEY = 1007, DEL_KEY = 1008;
+            PAGE_UP = 1004, PAGE_DOWN = 1005, HOME_KEY = 1006, END_KEY = 1007, DEL_KEY = 1008;
 
     private static LibC.Termios originalAttributes;
     private static int rows = 10;
@@ -47,7 +48,7 @@ public class Viewer {
             String fileName = args[0];
             Path path = Path.of(fileName);
             if (Files.exists(path)) {
-                try (Stream<String> stream = Files.lines(path)){
+                try (Stream<String> stream = Files.lines(path)) {
                     content = stream.toList();
                 } catch (IOException e) {
                     // TODO
@@ -112,7 +113,9 @@ public class Viewer {
                 ARROW_RIGHT,
                 ARROW_LEFT,
                 HOME_KEY,
-                END_KEY).contains(key)) {
+                END_KEY,
+                PAGE_UP,
+                PAGE_DOWN).contains(key)) {
 
             moveCursor(key);
         }
@@ -150,9 +153,34 @@ public class Viewer {
                     cursorX--;
                 }
             }
-            case HOME_KEY -> cursorX = 0;
-            case END_KEY -> cursorY = columns - 1;
+            case PAGE_UP, PAGE_DOWN -> {
+
+                if (key == PAGE_UP) {
+                    moveCursorToTopOffScreen();
+                } else if (key == PAGE_DOWN) {
+                    moveCursorToBottomOffScreen();
+                }
+
+                for (int i = 0; i < rows; i++) {
+                    moveCursor(key == PAGE_UP
+                            ? ARROW_UP
+                            : ARROW_DOWN);
+                }
+            }
+                case HOME_KEY -> cursorX = 0;
+                case END_KEY -> cursorY = columns - 1;
         }
+    }
+
+    private static void moveCursorToBottomOffScreen() {
+        cursorY = offsetY + rows - 1;
+        if (cursorY > content.size()) {
+            cursorY = content.size();
+        }
+    }
+
+    private static void moveCursorToTopOffScreen() {
+        cursorY = offsetY;
     }
 
     private static int readKey() throws IOException {
