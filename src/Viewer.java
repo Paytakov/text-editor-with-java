@@ -17,7 +17,7 @@ public class Viewer {
     private static LibC.Termios originalAttributes;
     private static int rows = 10;
     private static int columns = 10;
-    private static int cursorX = 0, cursorY = 0, offsetY = 0;
+    private static int cursorX = 0, offsetX = 0, cursorY = 0, offsetY = 0;
     private static List<String> content = List.of();
 
     public static void main(String[] args) throws IOException {
@@ -40,6 +40,12 @@ public class Viewer {
             offsetY = cursorY - rows + 1;
         } else if (cursorY < offsetY) {
             offsetY = cursorY;
+        }
+
+        if (cursorX >= columns + offsetX) {
+            offsetX = cursorX - columns + 1;
+        } else if (cursorX < offsetX) {
+            offsetX = cursorX;
         }
     }
 
@@ -79,7 +85,7 @@ public class Viewer {
     }
 
     private static void drawCursor(StringBuilder builder) {
-        builder.append(String.format("\033[%d;%dH", cursorY - offsetY + 1, cursorX + 1));
+        builder.append(String.format("\033[%d;%dH", cursorY - offsetY + 1, cursorX - offsetX + 1));
     }
 
     private static void drawStatusBar(StringBuilder builder) {
@@ -98,7 +104,22 @@ public class Viewer {
             if (fileI >= content.size()) {
                 builder.append("~");
             } else {
-                builder.append(content.get(fileI));
+                String currLine = content.get(fileI);
+                int lengthToDrawForLine = currLine.length() - offsetX;
+
+                if (lengthToDrawForLine < 0) {
+                    lengthToDrawForLine = 0;
+                }
+
+                if (lengthToDrawForLine > columns) {
+                    lengthToDrawForLine = columns;
+                }
+
+                if (lengthToDrawForLine > 0) {
+                    builder.append(currLine,
+                            offsetX,
+                            offsetX + lengthToDrawForLine);
+                }
             }
             builder.append("\r\n");
         }
@@ -144,7 +165,7 @@ public class Viewer {
                 }
             }
             case ARROW_RIGHT -> {
-                if (cursorX < columns - 1) {
+                if (cursorX < content.get(cursorY).length() - 1) {
                     cursorX++;
                 }
             }
