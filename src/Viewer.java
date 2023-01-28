@@ -153,6 +153,7 @@ public class Viewer {
     }
 
     private static void moveCursor(int key) {
+        String line = currentLine();
         switch (key) {
             case ARROW_UP -> {
                 if (cursorY > 0) {
@@ -165,7 +166,7 @@ public class Viewer {
                 }
             }
             case ARROW_RIGHT -> {
-                if (cursorX < content.get(cursorY).length() - 1) {
+                if (line != null && cursorX < line.length()) {
                     cursorX++;
                 }
             }
@@ -188,9 +189,24 @@ public class Viewer {
                             : ARROW_DOWN);
                 }
             }
-                case HOME_KEY -> cursorX = 0;
-                case END_KEY -> cursorY = columns - 1;
+            case HOME_KEY -> cursorX = 0;
+            case END_KEY -> {
+                if (line != null) {
+                    cursorX = line.length();
+                }
+            }
         }
+
+        String newLine = currentLine() ;
+        if (newLine != null && cursorX > newLine.length()) {
+            cursorX = newLine.length();
+        }
+    }
+
+    private static String currentLine() {
+        return cursorY < content.size()
+                ? content.get(cursorY)
+                : null;
     }
 
     private static void moveCursorToBottomOffScreen() {
