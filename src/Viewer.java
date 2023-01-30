@@ -1,7 +1,6 @@
 import com.sun.jna.Library;
 import com.sun.jna.Native;
 import com.sun.jna.Structure;
-
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -23,8 +22,6 @@ public class Viewer {
     public static void main(String[] args) throws IOException {
 
         openFile(args);
-
-        enableRawMode();
         initEditor();
 
         while (true) {
@@ -64,6 +61,7 @@ public class Viewer {
     }
 
     private static void initEditor() {
+        enableRawMode();
         LibC.Winsize windowSize = getWindowSize();
         rows = windowSize.ws_row - 1;
         columns = windowSize.ws_col;
@@ -121,12 +119,12 @@ public class Viewer {
                             offsetX + lengthToDrawForLine);
                 }
             }
-            builder.append("\r\n");
+            builder.append("\033[K\r\n");
         }
     }
 
     private static void handleKey(int key) {
-        if (key == 'q') {
+        if (key == ctrl('q')) {
             exit();
         } else if (List.of(
                 ARROW_UP,
@@ -142,14 +140,22 @@ public class Viewer {
         }
     }
 
+    private static int ctrl(char key) {
+        return key & 0x1f;
+    }
+
     private static void exit() {
         System.out.print("\033[2J");
         System.out.print("\033[H");
+        disableRawMode();
+        System.exit(0);
+    }
+
+    private static void disableRawMode() {
         LibC.INSTANCE.tcsetattr(
                 LibC.SYSTEM_OUT_FD,
                 LibC.TCSAFLUSH,
                 originalAttributes);
-        System.exit(0);
     }
 
     private static void moveCursor(int key) {
@@ -235,7 +241,7 @@ public class Viewer {
 
         if (nextKey != '[') {
             return switch (yetAnotherKey) {
-                case 'A' -> ARROW_UP;
+                case 'A' -> ARROW_UP; // e.g. esc[A == arrow_up
                 case 'B' -> ARROW_DOWN;
                 case 'C' -> ARROW_RIGHT;
                 case 'D' -> ARROW_LEFT;
